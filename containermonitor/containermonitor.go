@@ -106,8 +106,10 @@ func (m *ContainerMonitor) listen(containerEvents <-chan events.Message, errors 
 					delete(m.RunningContainers, event.Actor.ID)
 				}
 			case <-errors:
+				timer.Stop()
 				close(containers)
 			case <-m.ctx.Done():
+				timer.Stop()
 				close(containers)
 			case <-timer.C:
 				existing, err := m.getExisting()
@@ -120,7 +122,6 @@ func (m *ContainerMonitor) listen(containerEvents <-chan events.Message, errors 
 						}
 					}
 				}
-
 			}
 		}
 	}()
