@@ -2,6 +2,7 @@ package containermonitor
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -11,11 +12,12 @@ import (
 )
 
 type ContainerMonitor struct {
-	client *client.Client
-	ctx    context.Context
+	client            *client.Client
+	ctx               context.Context
 	RunningContainers map[string]*types.ContainerJSON
-	createHooks []func(*types.ContainerJSON)
-	destroyHooks []func(*types.ContainerJSON)
+	createHooks       []func(*types.ContainerJSON)
+	destroyHooks      []func(*types.ContainerJSON)
+	Debug             bool
 }
 
 type ContainerEvent struct {
@@ -55,16 +57,18 @@ func (m *ContainerMonitor) Start() error {
 
 func (m *ContainerMonitor) getEventFilter() filters.Args {
 	args := filters.NewArgs()
-	args.Add("type", "container")
-	args.Add("event", "create")
-	args.Add("event", "destroy")
+	if !m.Debug {
+		args.Add("type", "container")
+		args.Add("event", "create")
+		args.Add("event", "destroy")
+	}
 	return args
 }
 
 func (m *ContainerMonitor) handleStream(events chan ContainerEvent) {
 	for {
 		select {
-		case event := <- events:
+		case event := <-events:
 			switch event.Action {
 			case "create":
 				for index := range m.createHooks {
@@ -104,6 +108,8 @@ func (m *ContainerMonitor) listen(containerEvents <-chan events.Message, errors 
 						Action:    event.Status,
 					}
 					delete(m.RunningContainers, event.Actor.ID)
+				default:
+					log.Printf("Unknown action: %+v", event)
 				}
 			case <-errors:
 				timer.Stop()

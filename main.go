@@ -2,19 +2,31 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	"os"
 	"os/signal"
 
 	"github.com/docker/docker/api/types"
 	"github.com/greboid/dockerdnsmanager/containermonitor"
+	"github.com/kouhin/envflag"
+)
+
+var (
+	debug = flag.Bool("debug", false, "Show debug")
 )
 
 func main() {
+	log.SetFlags(log.Flags() &^ (log.Ldate | log.Ltime))
+	err := envflag.Parse()
+	if err != nil {
+		log.Fatalf("Unable to parse flags: %s", err)
+	}
 	cm, err := containermonitor.NewContainerMonitor(context.Background())
 	if err != nil {
 		log.Fatalf("Unable to create container monitor.")
 	}
+	cm.Debug = *debug
 	cm.AddCreateHook(func(json *types.ContainerJSON) {
 		log.Printf("Container created: %s (%s)", json.Name, json.Image)
 	})
