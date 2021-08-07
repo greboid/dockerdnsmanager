@@ -12,12 +12,12 @@ import (
 )
 
 type ContainerMonitor struct {
-	client            *client.Client
-	ctx               context.Context
-	RunningContainers map[string]*types.ContainerJSON
-	createHooks       []func(*types.ContainerJSON)
-	destroyHooks      []func(*types.ContainerJSON)
-	Debug             bool
+	client             *client.Client
+	ctx                context.Context
+	RunningContainers  map[string]*types.ContainerJSON
+	createHooks        []func(*types.ContainerJSON)
+	destroyHooks       []func(*types.ContainerJSON)
+	Debug              bool
 }
 
 type ContainerEvent struct {
@@ -51,7 +51,9 @@ func (m *ContainerMonitor) AddDestroyHook(function func(json *types.ContainerJSO
 }
 
 func (m *ContainerMonitor) Start() error {
-	m.handleStream(m.listen(m.client.Events(m.ctx, types.EventsOptions{Filters: m.getEventFilter()})))
+	ctx, cancel := context.WithCancel(m.ctx)
+	containerEvents, errors := m.client.Events(ctx, types.EventsOptions{Filters: m.getEventFilter()})
+	m.handleStream(m.listen(cancel, containerEvents, errors))
 	return nil
 }
 
@@ -83,7 +85,7 @@ func (m *ContainerMonitor) handleStream(events chan ContainerEvent) {
 	}
 }
 
-func (m *ContainerMonitor) listen(containerEvents <-chan events.Message, errors <-chan error) chan ContainerEvent {
+func (m *ContainerMonitor) listen(cancel context.CancelFunc, containerEvents <-chan events.Message, errors <-chan error) chan ContainerEvent {
 	containers := make(chan ContainerEvent)
 	timer := time.NewTimer(30 * time.Second)
 	go func() {
@@ -111,12 +113,17 @@ func (m *ContainerMonitor) listen(containerEvents <-chan events.Message, errors 
 				default:
 					log.Printf("Unknown action: %+v", event)
 				}
-			case <-errors:
+			case err := <-errors:
+				log.Printf("Error in stream: %s", err)
 				timer.Stop()
-				close(containers)
+				cancel()
+				return
 			case <-m.ctx.Done():
+				log.Printf("DONE!!!!")
 				timer.Stop()
 				close(containers)
+				cancel()
+				return
 			case <-timer.C:
 				existing, err := m.getExisting()
 				if err == nil {
