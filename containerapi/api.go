@@ -14,43 +14,6 @@ import (
 	"github.com/docker/go-connections/tlsconfig"
 )
 
-type ContainerAPI struct {
-	apiVersion string
-	certPath   string
-	tlsVerify  bool
-	client     *http.Client
-	requestScheme string
-	transportScheme string
-	transportHost string
-	url *url.URL
-}
-
-type EngineType int
-
-const (
-	Docker = iota
-	Podman
-	DockerSwarm
-	Unknown
-)
-
-func (s EngineType) String() string {
-	switch s {
-	case Docker:
-		return "Docker"
-	case Podman:
-		return "Podman"
-	case DockerSwarm:
-		return "Docker Swarm"
-	default:
-		return "Unknown"
-	}
-}
-
-const (
-	defaultDockerHost = "unix:///var/run/docker.sock"
-)
-
 func NewClient() (*ContainerAPI, error) {
 	c := &ContainerAPI{}
 	if dockerCertPath := os.Getenv("DOCKER_CERT_PATH"); dockerCertPath != "" {
@@ -60,13 +23,13 @@ func NewClient() (*ContainerAPI, error) {
 			KeyFile:            filepath.Join(dockerCertPath, "key.pem"),
 			InsecureSkipVerify: os.Getenv("DOCKER_TLS_VERIFY") == "",
 		}
-		tlsc, err := tlsconfig.Client(options)
+		tlsClientConfig, err := tlsconfig.Client(options)
 		if err != nil {
 			return nil, err
 		}
 
-		c.client = &http.Client{
-			Transport: &http.Transport{TLSClientConfig: tlsc},
+		c.httpClient = &http.Client{
+			Transport: &http.Transport{TLSClientConfig: tlsClientConfig},
 		}
 	}
 	host := os.Getenv("DOCKER_HOST")
@@ -80,10 +43,21 @@ func NewClient() (*ContainerAPI, error) {
 	if err != nil {
 		return nil, err
 	}
-	c.client = httpClient
+	c.httpClient = httpClient
 
 	if version := os.Getenv("DOCKER_API_VERSION"); version != "" {
 		c.apiVersion = version
+	}
+	engineType, _ := c.GetEngineType()
+	switch engineType {
+	case Docker:
+		c.APIClient = newDockerClient(c)
+	case DockerSwarm:
+		c.APIClient = newDockerSwarmClient(c)
+	case Podman:
+		c.APIClient = newPodmanClient(c)
+	default:
+		return nil, fmt.Errorf("unable to determine engine type")
 	}
 	return c, nil
 }
@@ -127,27 +101,15 @@ func (c *ContainerAPI) getHttpClient() (*http.Client, error) {
 		return nil, err
 	}
 	return &http.Client{
-		Transport:     transport,
+		Transport: transport,
 	}, nil
 }
 
-type VersionResponse struct {
-	Components []struct {
-		Name string `json:"Name"`
-	} `json:"Components"`
-}
-
-type InfoResponse struct {
-	Swarm struct {
-		LocalNodeState string `json:"LocalNodeState"`
-	} `json:"Swarm"`
-}
-
-func (c *ContainerAPI) GetProtocol() (EngineType, error) {
+func (c *ContainerAPI) GetEngineType() (EngineType, error) {
 	enginetype := Unknown
 	newURL := c.url
 	newURL.Path = "/version"
-	resp, err := c.client.Get(newURL.String())
+	resp, err := c.httpClient.Get(newURL.String())
 	if err != nil {
 		return Unknown, err
 	}
@@ -173,7 +135,7 @@ func (c *ContainerAPI) GetProtocol() (EngineType, error) {
 	}
 	newURL = c.url
 	newURL.Path = "/info"
-	resp, err = c.client.Get(newURL.String())
+	resp, err = c.httpClient.Get(newURL.String())
 	if err != nil {
 		return Unknown, err
 	}

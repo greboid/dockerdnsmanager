@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/docker/docker/api/types"
 	"github.com/greboid/dockerdnsmanager/containerapi"
 	"github.com/greboid/dockerdnsmanager/containermonitor"
 	"github.com/kouhin/envflag"
@@ -27,7 +26,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to create client: %s", err)
 	}
-	version, err := client.GetProtocol()
+	version, err := client.GetEngineType()
 	if err != nil {
 		log.Fatalf("Unable to get version: %s", err)
 	}
@@ -38,10 +37,10 @@ func main() {
 		log.Fatalf("Unable to create container monitor.")
 	}
 	cm.Debug = *debug
-	cm.AddCreateHook(func(json *types.ContainerJSON) {
+	cm.AddCreateHook(func(json *containerapi.Container) {
 		log.Printf("Container created: %s (%s)", json.Name, json.Image)
 	})
-	cm.AddDestroyHook(func(json *types.ContainerJSON) {
+	cm.AddDestroyHook(func(json *containerapi.Container) {
 		log.Printf("Container destroyed: %s (%s)", json.Name, json.Image)
 	})
 	err = cm.Start()
