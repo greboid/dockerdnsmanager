@@ -23,7 +23,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to parse flags: %s", err)
 	}
-	client, err := containerapi.NewFromEnv()
+	client, err := containerapi.NewClient()
 	if err != nil {
 		log.Fatalf("Unable to create client: %s", err)
 	}

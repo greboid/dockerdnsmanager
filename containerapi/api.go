@@ -25,17 +25,33 @@ type ContainerAPI struct {
 	url *url.URL
 }
 
-type EngineType string
+type EngineType int
+
+const (
+	Docker = iota
+	Podman
+	DockerSwarm
+	Unknown
+)
+
+func (s EngineType) String() string {
+	switch s {
+	case Docker:
+		return "Docker"
+	case Podman:
+		return "Podman"
+	case DockerSwarm:
+		return "Docker Swarm"
+	default:
+		return "Unknown"
+	}
+}
 
 const (
 	defaultDockerHost = "unix:///var/run/docker.sock"
-	Docker = "Docker"
-	Podman = "Podman"
-	DockerSwarm = "Docker Swarm"
-	Unknown = "Unknown Engine"
 )
 
-func NewFromEnv() (*ContainerAPI, error) {
+func NewClient() (*ContainerAPI, error) {
 	c := &ContainerAPI{}
 	if dockerCertPath := os.Getenv("DOCKER_CERT_PATH"); dockerCertPath != "" {
 		options := tlsconfig.Options{
@@ -70,20 +86,6 @@ func NewFromEnv() (*ContainerAPI, error) {
 		c.apiVersion = version
 	}
 	return c, nil
-}
-
-func New() (*ContainerAPI, error) {
-	client := &ContainerAPI{}
-	err := client.parseHost(defaultDockerHost)
-	if err != nil {
-		return nil, err
-	}
-	httpClient, err := client.getHttpClient()
-	if err != nil {
-		return nil, err
-	}
-	client.client = httpClient
-	return client, nil
 }
 
 func (c *ContainerAPI) parseHost(host string) error {
