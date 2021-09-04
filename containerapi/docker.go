@@ -83,7 +83,7 @@ func (d *DockerClient) startEvents(containerEvents chan *DockerContainerEvent) e
 		log.Printf("Finished waiting on existing containers")
 		decoder := json.NewDecoder(resp.Body)
 		containerEvent := &DockerEvent{}
-		for decoder.More() {``
+		for decoder.More() {
 			err = decoder.Decode(containerEvent)
 			if err != nil {
 				log.Printf("Error decoding event: %s", err)
