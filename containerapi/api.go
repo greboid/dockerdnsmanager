@@ -28,7 +28,7 @@ func NewClient() (*ContainerAPI, error) {
 			return nil, err
 		}
 
-		c.httpClient = &http.Client{
+		c.HttpClient = &http.Client{
 			Transport: &http.Transport{TLSClientConfig: tlsClientConfig},
 		}
 	}
@@ -43,7 +43,7 @@ func NewClient() (*ContainerAPI, error) {
 	if err != nil {
 		return nil, err
 	}
-	c.httpClient = httpClient
+	c.HttpClient = httpClient
 
 	if version := os.Getenv("DOCKER_API_VERSION"); version != "" {
 		c.apiVersion = version
@@ -51,11 +51,12 @@ func NewClient() (*ContainerAPI, error) {
 	engineType, _ := c.GetEngineType()
 	switch engineType {
 	case Docker:
-		c.APIClient = newDockerClient(c)
+		c.APIClient = NewDockerClient(c)
 	case DockerSwarm:
-		c.APIClient = newDockerSwarmClient(c)
+		//c.APIClient = NewDockerSwarmClient(c)
+		c.APIClient = NewDockerClient(c)
 	case Podman:
-		c.APIClient = newPodmanClient(c)
+		c.APIClient = NewPodmanClient(c)
 	default:
 		return nil, fmt.Errorf("unable to determine engine type")
 	}
@@ -90,7 +91,7 @@ func (c *ContainerAPI) parseHost(host string) error {
 	if err != nil {
 		return err
 	}
-	c.url = parsedURL
+	c.Url = parsedURL
 	return nil
 }
 
@@ -107,9 +108,9 @@ func (c *ContainerAPI) getHttpClient() (*http.Client, error) {
 
 func (c *ContainerAPI) GetEngineType() (EngineType, error) {
 	enginetype := Unknown
-	newURL := c.url
+	newURL := c.Url
 	newURL.Path = "/version"
-	resp, err := c.httpClient.Get(newURL.String())
+	resp, err := c.HttpClient.Get(newURL.String())
 	if err != nil {
 		return Unknown, err
 	}
@@ -133,9 +134,9 @@ func (c *ContainerAPI) GetEngineType() (EngineType, error) {
 	} else if ver.Components[0].Name == "Podman Engine" {
 		enginetype = Podman
 	}
-	newURL = c.url
+	newURL = c.Url
 	newURL.Path = "/info"
-	resp, err = c.httpClient.Get(newURL.String())
+	resp, err = c.HttpClient.Get(newURL.String())
 	if err != nil {
 		return Unknown, err
 	}

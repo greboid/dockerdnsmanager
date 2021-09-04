@@ -4,21 +4,13 @@ type PodmanClient struct {
 	client *ContainerAPI
 }
 
-func newPodmanClient(apiClient *ContainerAPI) PodmanClient {
-	return PodmanClient{
+func NewPodmanClient(apiClient *ContainerAPI) *PodmanClient {
+	return &PodmanClient{
 		client: apiClient,
 	}
 }
 
-func (p PodmanClient) GetEvents() (<-chan ContainerEvent, error) {
-	panic("implement me")
-}
-
-func (p PodmanClient) GetContainerEvents() (<-chan ContainerEvent, error) {
-	panic("implement me")
-}
-
-func (p PodmanClient) GetExistingContainers() ([]*Container, error) {
+func (p PodmanClient) GetStream() (<-chan *ContainerEvent, error) {
 	panic("implement me")
 }
 

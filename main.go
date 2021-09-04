@@ -22,6 +22,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to parse flags: %s", err)
 	}
+	log.Printf("Debug: %t", *debug)
 	client, err := containerapi.NewClient()
 	if err != nil {
 		log.Fatalf("Unable to create client: %s", err)
@@ -38,7 +39,7 @@ func main() {
 	}
 	cm.Debug = *debug
 	cm.AddCreateHook(func(json *containerapi.Container) {
-		log.Printf("Container created: %s (%s)", json.Name, json.Image)
+		log.Printf("Container created: %s (%s) Labels: %s | Ports: %v", json.Name, json.Image, json.Label, json.Ports)
 	})
 	cm.AddDestroyHook(func(json *containerapi.Container) {
 		log.Printf("Container destroyed: %s (%s)", json.Name, json.Image)

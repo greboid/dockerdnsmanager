@@ -1,7 +1,8 @@
 package containerapi
 
 import (
-	"net"
+	"encoding/json"
+	"log"
 	"net/http"
 	"net/url"
 )
@@ -20,18 +21,17 @@ type EngineType int
 type ContainerAPI struct {
 	apiVersion      string
 	certPath        string
-	tlsVerify       bool
-	httpClient      *http.Client
-	requestScheme   string
+	tlsVerify     bool
+	HttpClient    *http.Client
+	requestScheme string
 	transportScheme string
-	transportHost   string
-	url             *url.URL
-	APIClient       ApiClient
+	transportHost string
+	Url           *url.URL
+	APIClient     ApiClient
 }
 
 type ApiClient interface {
-	GetContainerEvents() (<-chan ContainerEvent, error)
-	GetExistingContainers() ([]*Container, error)
+	GetStream() (<-chan *ContainerEvent, error)
 	GetContainerFromID(ID string) (*Container, error)
 }
 
@@ -48,22 +48,31 @@ type InfoResponse struct {
 }
 
 type ContainerEvent struct {
+	Type string
 	Action    string
 	Container *Container
+	Service *Service
+}
+
+type Service struct {
+	ID string
+	Name string
+	Label map[string]string
+	Ports []Port
 }
 
 type Container struct {
 	ID    string
 	Name  string
 	Image string
-	Label []string
+	Label map[string]string
 	Ports []Port
 }
 
 type Port struct {
-	BindIP        net.IP
-	HostPort      int
-	ContainerPort int
+	PrivatePort int
+	PublicPort int
+	Type string
 }
 
 func (s EngineType) String() string {
@@ -77,4 +86,12 @@ func (s EngineType) String() string {
 	default:
 		return "Unknown"
 	}
+}
+
+func MustJsonMarshall(value interface{}) []byte {
+	data, err := json.Marshal(value)
+	if err != nil {
+		log.Panicf("Unable to json marshall: %s", err)
+	}
+	return data
 }

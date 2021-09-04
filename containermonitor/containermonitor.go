@@ -2,8 +2,6 @@ package containermonitor
 
 import (
 	"context"
-	"log"
-	"time"
 
 	"github.com/greboid/dockerdnsmanager/containerapi"
 )
@@ -42,8 +40,7 @@ func (m *ContainerMonitor) AddDestroyHook(function func(json *containerapi.Conta
 }
 
 func (m *ContainerMonitor) Start() error {
-	log.Printf("Starting")
-	containerEvents, err := m.client.APIClient.GetContainerEvents()
+	containerEvents, err := m.client.APIClient.GetStream()
 	if err != nil {
 		return err
 	}
@@ -51,34 +48,42 @@ func (m *ContainerMonitor) Start() error {
 	return nil
 }
 
-func (m *ContainerMonitor) handleStream(events <-chan containerapi.ContainerEvent) {
-	timer := time.NewTimer(30 * time.Second)
+func (m *ContainerMonitor) handleStream(events <-chan *containerapi.ContainerEvent) {
 	for {
 		select {
-		case <-timer.C:
-			existing, err := m.client.APIClient.GetExistingContainers()
-			if err == nil {
-				for index := range existing {
-					for hookIndex := range m.createHooks {
-						m.createHooks[hookIndex](existing[index])
-					}
-				}
-			}
 		case event := <-events:
-			switch event.Action {
-			case "create":
-				for index := range m.createHooks {
-					m.createHooks[index](event.Container)
-				}
-			case "destroy":
-				for index := range m.destroyHooks {
-					m.destroyHooks[index](event.Container)
-				}
-			default:
-				if m.Debug {
-					log.Printf("Uparsed Event: %+v", event)
-				}
-			}
+			m.handleContainerEvent(event)
 		}
+	}
+}
+
+func (m *ContainerMonitor) handleContainerEvent(event *containerapi.ContainerEvent) {
+	if event.Type == "service" {
+		return
+	}
+	switch event.Action {
+	case "create":
+		m.RunningContainers[event.Container.ID] = event.Container
+		for index := range m.createHooks {
+			m.createHooks[index](event.Container)
+		}
+	case "remove":
+		container := m.RunningContainers[event.Container.ID]
+		if container == nil {
+			return
+		}
+		for index := range m.destroyHooks {
+			m.destroyHooks[index](container)
+		}
+		delete(m.RunningContainers, event.Container.ID)
+	case "destroy":
+		container := m.RunningContainers[event.Container.ID]
+		if container == nil {
+			return
+		}
+		for index := range m.destroyHooks {
+			m.destroyHooks[index](container)
+		}
+		delete(m.RunningContainers, event.Container.ID)
 	}
 }
