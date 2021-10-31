@@ -1,16 +1,4 @@
-FROM registry.greboid.com/mirror/golang:latest as builder
-
-ENV USER=appuser
-ENV UID=10001
-
-RUN adduser \
-    --disabled-password \
-    --gecos "" \
-    --home "/nonexistent" \
-    --shell "/sbin/nologin" \
-    --no-create-home \
-    --uid "${UID}" \
-    "${USER}"
+FROM ghcr.io/greboid/dockerfiles/golang@sha256:b39e962ca9b7c2d31ba231c4912fc7831d59dfbb5dcd5e3fa9bba79bd51cc32c as builder
 
 WORKDIR /app
 COPY . /app
@@ -18,14 +6,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -gcflags=./dontoptimizeme=-N -ld
     find /app -exec touch --date=@0 {} \;
 RUN mkdir /data
 
-FROM scratch
+FROM ghcr.io/greboid/dockerfiles/base@sha256:82873fbcddc94e3cf77fdfe36765391b6e6049701623a62c2a23248d2a42b1cf
 
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=builder /etc/passwd /etc/passwd
-COPY --from=builder /etc/group /etc/group
-COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
-COPY --from=builder --chown=appuser /data /data
+COPY --from=builder --chown=65532 /data /data
 
 COPY --from=builder /app/main /containermonitor
-USER appuser:appuser
 CMD ["/containermonitor"]
