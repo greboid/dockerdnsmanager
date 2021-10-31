@@ -7,9 +7,9 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/csmith/envflag"
 	"github.com/greboid/dockerdnsmanager/containerapi"
 	"github.com/greboid/dockerdnsmanager/containermonitor"
-	"github.com/kouhin/envflag"
 )
 
 var (
@@ -17,11 +17,8 @@ var (
 )
 
 func main() {
+	envflag.Parse()
 	log.SetFlags(log.Flags() &^ (log.Ldate | log.Ltime))
-	err := envflag.Parse()
-	if err != nil {
-		log.Fatalf("Unable to parse flags: %s", err)
-	}
 	log.Printf("Debug: %t", *debug)
 	client, err := containerapi.NewClient()
 	if err != nil {
